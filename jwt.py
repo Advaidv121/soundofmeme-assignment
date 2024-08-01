@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, Path , status, Depends , Response
+from fastapi import FastAPI, HTTPException, Query, Path , status, Depends , Response,File, UploadFile, Form
 from pydantic import BaseModel, Field ,conint
 from datetime import datetime, timedelta, timezone
 import uvicorn
@@ -23,6 +23,7 @@ import aiofiles
 import asyncio
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 import random
+import shutil
 ##---------------------------------------------------------------------------------------------
 
 origins = [
@@ -662,7 +663,59 @@ async def unlike(view: Views ,current_user : str = Depends(get_current_user) ):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500)
+    
+@app.post("/clonesong")
+async def create_upload_file(
+    file: UploadFile = File(...), 
+    prompt: str = Form(...), 
+    lyrics: str = Form(...),
+    current_user : str = Depends(get_current_user)
+):
+    file_location = f"downloads/{file.filename}"
+    if file.content_type != "audio/mpeg":
+        raise HTTPException(status_code=400,detail="The file is not mp3")
+    await asyncio.sleep(120)
+    element = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44]
+    random_element = random.choice(element)
+    user_id = current_user
+    try:
+        # Connect to the database
+        conn = get_database_connection()
+        cursor = conn.cursor()
+        insert_query = '''
+    SELECT song_id, user_id, song_name, song_url, likes, views, cover_image_url, lyrics, tags, date_time FROM songs WHERE song_id = ?;
+    '''
+
+        cursor.execute(insert_query, (random_element,))
+        row = cursor.fetchone()
+
+        # Close the database connection
+        cursor.close()
+        conn.close()
+
+        if row:
+            # Extract song details from the result
+            song_id,user_id, song_name, song_url, likes, views, cover_image_url,lyrics,tags,date_time = row
+            song_details = {
+                'song_id':song_id,
+                'user_id': user_id,
+                'song_name': song_name,
+                'song_url': song_url,
+                'likes': likes,
+                'views': views,
+                'image_url': cover_image_url,
+                'lyrics' : lyrics,
+                'tags' : tags.replace(",", "").split(),
+                'date_time' : date_time
+            }
+            return song_details
+        else:
+            # Return 404 if song ID not found
+            return{"detail":"Song not found"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500)
 
 if __name__ == '__main__':
     
-    uvicorn.run("jwt:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("jwt:app", host="0.0.0.0", port=8000, reload=True)
